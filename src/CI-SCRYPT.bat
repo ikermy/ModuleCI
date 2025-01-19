@@ -1,0 +1,1 @@
+java -jar D:\IntelliJProject\ModuleCI\ModuleCI\build\libs\ModuleCI-0.1.0-all.jar %1 %2\cfg\settings.conf
