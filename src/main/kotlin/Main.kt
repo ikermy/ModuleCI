@@ -1,11 +1,9 @@
-package ib.infobot
-
+import com.typesafe.config.ConfigFactory
 import net.schmizz.sshj.SSHClient
-import net.schmizz.sshj.userauth.keyprovider.KeyProvider
 import net.schmizz.sshj.transport.verification.PromiscuousVerifier
+import net.schmizz.sshj.userauth.keyprovider.KeyProvider
 import java.io.File
 import java.nio.file.Paths
-import com.typesafe.config.ConfigFactory
 
 class CI(
     val localFile: String,
@@ -19,7 +17,6 @@ class CI(
     private val user: String = config.getString("CI.user")
     private val privateKeyPatch: String = config.getString("CI.privateKey")
     private val remoteDir: String = config.getString("CI.remoteDir")
-
 
     init {
         val ssh = SSHClient()
@@ -38,9 +35,17 @@ class CI(
             result("Opening SFTP client")
             val sftp = ssh.newSFTPClient()
             sftp.use { sftpClient ->
-                println("Uploading file: $localFile to $remoteDir")
-                sftpClient.put(localFile, "$remoteDir/${Paths.get(localFile).fileName}")
-                result("File successfully uploaded to SFTP server")
+                val tmpFileName = "${Paths.get(localFile).fileName}.tmp"
+                val remoteTmpFile = "$remoteDir/$tmpFileName"
+                val remoteFinalFile = "$remoteDir/${Paths.get(localFile).fileName}"
+
+                result("Uploading file: $localFile to $remoteTmpFile")
+                sftpClient.put(localFile, remoteTmpFile)
+
+                result("Renaming file: $remoteTmpFile to $remoteFinalFile")
+                sftpClient.rename(remoteTmpFile, remoteFinalFile)
+
+                result("File successfully uploaded and renamed on SFTP server")
             }
         } catch (e: Exception) {
             result("Upload file error: ${e.message}")
@@ -50,15 +55,4 @@ class CI(
             ssh.disconnect()
         }
     }
-}
-
-fun main(args: Array<String>) {
-    if (args.isEmpty()) {
-        println("Usage: java -jar ModuleCI-0.1.0.jar <localFile> <config>")
-        return
-    }
-
-    val localFile = args[0]
-    val configPath = args[1]
-    CI(localFile, configPath, result = { message -> println(message) })
 }
